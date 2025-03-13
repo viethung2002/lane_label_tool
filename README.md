@@ -6,8 +6,7 @@
 Đầu tiên, bạn cần clone repository về máy của mình. Mở terminal (hoặc PowerShell trên Windows) và chạy lệnh sau:
 
 bash
-Sao chép
-Chỉnh sửa
+
 git clone https://github.com/viethung2002/lane_label_tool.git
 Lệnh này sẽ tải về toàn bộ mã nguồn của dự án và tạo một thư mục lane_label_tool trong thư mục hiện tại của bạn.
 
