@@ -40,6 +40,8 @@ bash
 Sao chép
 Chỉnh sửa
 source myenv/bin/activate
+
+bash
 3. Cài đặt các thư viện yêu cầu
 Sau khi đã kích hoạt môi trường ảo, bạn cần cài đặt các thư viện phụ thuộc từ tệp requirements.txt. Đảm bảo bạn đã có tệp requirements.txt trong thư mục dự án.
 
@@ -81,13 +83,21 @@ Tạo Tệp Train/Valid/Test: Nhấn "Tạo Train/Valid/Test" để tạo các t
 
 Phím Tắt:
 Ctrl + O: Mở thư mục ảnh.
+
 Ctrl + S: Lưu ảnh.
+
 M: Chuyển chế độ vẽ (line, curve, polygon, polyline).
+
 Tab: Chuyển chế độ "Label", "Pan", "Edit".
+
 Return: Hoàn thành đối tượng vẽ.
+
 Z: Hủy đối tượng vẽ gần nhất.
+
 C: Xóa tất cả các đối tượng chú thích.
+
 N: Xem ảnh tiếp theo.
+
 P: Xem ảnh trước.
 
 Lưu ý:
