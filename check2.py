@@ -1,11 +1,11 @@
 import cv2
 
 # Đọc ảnh gốc
-image = cv2.imread("D:/lane_labeling_tool/gt_image/0008.png")
+image = cv2.imread("D:/lane_labeling_tool/gt_image/0000.png")
 
 # Đọc các điểm từ file .txt
 points = []
-with open("D:/lane_labeling_tool/gt_image/0008_lines.txt", "r") as file:
+with open("D:/lane_labeling_tool/gt_image/0000_lines.txt", "r") as file:
     for line in file:
         # Tách các giá trị x, y trong mỗi dòng
         values = line.split()

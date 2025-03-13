@@ -90,7 +90,7 @@ class AnnotationTool:
         thickness_slider.pack(side=tk.TOP, fill=tk.X)
 
         # Canvas for image display
-        self.canvas = tk.Canvas(self.root, width=800, height=600)
+        self.canvas = tk.Canvas(self.root, width=1640, height=590)
         self.canvas.pack()
         self.img_display = self.canvas.create_image(0, 0, anchor=tk.NW)
 
@@ -187,9 +187,9 @@ class AnnotationTool:
 
         self.img = cv2.imread(self.img_path)
         if self.img is not None:
-            self.img = cv2.resize(self.img, (800, 600))
-            self.binary_img = np.zeros((600, 800), dtype=np.uint8)
-            self.gray_lane_img = np.zeros((600, 800), dtype=np.uint8)
+            self.img = cv2.resize(self.img, (1640, 590))
+            self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+            self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
             if os.path.exists(annotations_path):
                 with open(annotations_path, 'r') as f:
                     self.annotations = json.load(f)
@@ -258,9 +258,12 @@ class AnnotationTool:
         # Ensure y values are rounded to the nearest multiple of 10
         y_start = round(y1 / 10) * 10
         y_end = round(y2 / 10) * 10
-        
-        # Determine the range for the y-axis
-        y_range = np.arange(y_start, y_end + 10, 10)
+
+        # Determine the range for the y-axis based on the direction of drawing
+        if y_start < y_end:
+            y_range = np.arange(y_start, y_end + 10, 10)
+        else:
+            y_range = np.arange(y_start, y_end - 10, -10)  # Reverse the range if drawing from bottom to top
 
         for y in y_range:
             if slope != float('inf'):
@@ -271,6 +274,7 @@ class AnnotationTool:
             points.append((x, y))
         
         return points
+
 
     def generate_and_save_points(self, base_name):
         points_per_line = []
@@ -310,7 +314,7 @@ class AnnotationTool:
             self.image_label[self.img_path] = self.img.copy()
             # Save the annotated original image
             img = cv2.imread(self.img_path)
-            img = cv2.resize(img, (800, 600))
+            img = cv2.resize(img, (1640, 590))
             if self.img is not None:
                 cv2.imwrite(image_path, img)
 
@@ -389,10 +393,10 @@ class AnnotationTool:
             self.img_path = file_path
             self.img = cv2.imread(file_path)
             if self.img is not None:
-                self.img = cv2.resize(self.img, (800, 600))
+                self.img = cv2.resize(self.img, (1640, 590))
                 # Khởi tạo canvas nhị phân và canvas phân biệt lane cùng kích thước
-                self.binary_img = np.zeros((600, 800), dtype=np.uint8)
-                self.gray_lane_img = np.zeros((600, 800), dtype=np.uint8)
+                self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+                self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
                 self.update_display()
             else:
                 messagebox.showerror("Lỗi", "Không thể mở ảnh. Vui lòng thử lại.")
@@ -400,8 +404,8 @@ class AnnotationTool:
     def update_display(self):
         if self.img is not None:
             # Thay đổi kích thước ảnh theo zoom_scale
-            new_width = int(800 * self.zoom_scale)
-            new_height = int(600 * self.zoom_scale)
+            new_width = int(1640 * self.zoom_scale)
+            new_height = int(590 * self.zoom_scale)
             img_resized = cv2.resize(self.img, (new_width, new_height))
             # Tạo bản sao để vẽ các chú thích
             img_display = img_resized.copy()
@@ -836,8 +840,8 @@ class AnnotationTool:
 
     def update_display_image(self, temp_img):
         # Resize the temporary image according to the zoom scale
-        new_width = int(800 * self.zoom_scale)
-        new_height = int(600 * self.zoom_scale)
+        new_width = int(1640 * self.zoom_scale)
+        new_height = int(590 * self.zoom_scale)
         img_resized = cv2.resize(temp_img, (new_width, new_height))
         img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
         img_pil = Image.fromarray(img_rgb)
@@ -886,8 +890,8 @@ class AnnotationTool:
                 del self.image_label[self.img_path]
             if self.img_path in self.image_annotations:
                 del self.image_annotations[self.img_path]
-            self.binary_img = np.zeros((600, 800), dtype=np.uint8)  # Clear binary canvas
-            self.gray_lane_img = np.zeros((600, 800), dtype=np.uint8)  # Clear instance canvas
+            self.binary_img = np.zeros((590, 1640), dtype=np.uint8)  # Clear binary canvas
+            self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)  # Clear instance canvas
             self.redraw_annotations()
 
     def redraw_annotations(self, img=None):
@@ -895,9 +899,9 @@ class AnnotationTool:
             if img is None:
                 self.img = cv2.imread(self.img_path)
                 if self.img is not None:
-                    self.img = cv2.resize(self.img, (800, 600))
-                    self.binary_img = np.zeros((600, 800), dtype=np.uint8)
-                    self.gray_lane_img = np.zeros((600, 800), dtype=np.uint8)
+                    self.img = cv2.resize(self.img, (1640, 590))
+                    self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+                    self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
                 else:
                     messagebox.showerror("Error", "Cannot reload original image.")
                     return
