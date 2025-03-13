@@ -13,28 +13,18 @@ Lệnh này sẽ tải về toàn bộ mã nguồn của dự án và tạo mộ
 Trên Windows:
 
 bash
-Sao chép
-Chỉnh sửa
 python -m venv myenv
+
 Trên macOS/Linux:
-
 bash
-Sao chép
-Chỉnh sửa
 python3 -m venv myenv
+
 Sau đó, kích hoạt môi trường ảo:
-
 Trên Windows:
-
 bash
-Sao chép
-Chỉnh sửa
 .\myenv\Scripts\Activate
 Trên macOS/Linux:
-
 bash
-Sao chép
-Chỉnh sửa
 source myenv/bin/activate
 
 bash
