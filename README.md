@@ -33,9 +33,7 @@ Sau khi đã kích hoạt môi trường ảo, bạn cần cài đặt các thư
 
 Chạy lệnh sau để cài đặt tất cả các thư viện cần thiết:
 
-bash
-Sao chép
-Chỉnh sửa
+
 pip install -r requirements.txt
 Lệnh này sẽ tự động cài đặt tất cả các thư viện có trong requirements.txt.
 
