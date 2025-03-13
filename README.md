@@ -12,22 +12,22 @@ Lệnh này sẽ tải về toàn bộ mã nguồn của dự án và tạo mộ
 
 Trên Windows:
 
-bash
+
 python -m venv myenv
 
 Trên macOS/Linux:
-bash
+
 python3 -m venv myenv
 
 Sau đó, kích hoạt môi trường ảo:
 Trên Windows:
-bash
+
 .\myenv\Scripts\Activate
 Trên macOS/Linux:
-bash
+
 source myenv/bin/activate
 
-bash
+
 3. Cài đặt các thư viện yêu cầu
 Sau khi đã kích hoạt môi trường ảo, bạn cần cài đặt các thư viện phụ thuộc từ tệp requirements.txt. Đảm bảo bạn đã có tệp requirements.txt trong thư mục dự án.
 
