@@ -1,0 +1,8 @@
+output_frames/
+gt_instance_images/
+gt_image/
+gt_binary_image/
+annotations/
+myenv/
+MOVI1378.avi/
+
