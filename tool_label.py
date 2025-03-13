@@ -287,7 +287,7 @@ class AnnotationTool:
                     points_per_line.append(points)
 
         # Write points to a text file
-        txt_path = f"gt_image/{base_name}_lines.txt"
+        txt_path = f"gt_image/{base_name}.lines.txt"
         with open(txt_path, "w") as file:
             for line_points in points_per_line:
                 # Sort points by y in descending order
