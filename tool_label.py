@@ -44,6 +44,21 @@ class AnnotationTool:
         self.image_annotations = {}  # To store annotations per image
         self.image_label = {}        # To store annotated images per image
         self.current_point = None  # Initialize current_point
+        
+        # Lane characteristic options and default value
+        self.lane_options = [
+            "Normal: Bình thường",
+            "Crowded: Đông đúc",
+            "Night: Ban đêm",
+            "No line: Không có vạch",
+            "Shadow: Bóng râm",
+            "Arrow: Mũi tên",
+            "Dazzle light: Ánh sáng lóa",
+            "Curve: Cong",
+            "Crossroad: Ngã tư"
+        ]
+        self.lane_characteristics = ["Normal"]  # Default lane characteristics as a list
+        self.lane_vars = {}  # Will store BooleanVar for each checkbox
 
         # Variables for zoom and pan
         self.zoom_scale = 1.0
@@ -67,6 +82,25 @@ class AnnotationTool:
         tk.Button(toolbar, text="Xóa gần nhất", command=self.undo_last_annotation).pack(side=tk.LEFT, padx=2, pady=2)
         tk.Button(toolbar, text="Xóa tất cả", command=self.clear_all_annotations).pack(side=tk.LEFT, padx=2, pady=2)
         tk.Button(toolbar, text="Tạo Train/Valid/Test", command=self.create_train_valid_test_files).pack(side=tk.LEFT, padx=2, pady=2)
+        
+        # Lane characteristics checkboxes
+        lane_frame = tk.Frame(toolbar)
+        lane_frame.pack(side=tk.LEFT, padx=2, pady=2)
+        tk.Label(lane_frame, text="Đặc điểm lane:").pack(side=tk.TOP)
+
+        # Create a checkbutton for each lane option
+        for option in self.lane_options:
+            option_key = option.split(":")[0].strip()  # Extract the key part
+            var = tk.BooleanVar(self.root)
+            # Set Normal as checked by default
+            if option_key == "Normal":
+                var.set(True)
+            else:
+                var.set(False)
+            self.lane_vars[option_key] = var
+            cb = tk.Checkbutton(lane_frame, text=option, variable=var, command=self.update_lane_characteristics)
+            cb.pack(side=tk.TOP, anchor=tk.W)
+        
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
 
@@ -192,10 +226,42 @@ class AnnotationTool:
             self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
             if os.path.exists(annotations_path):
                 with open(annotations_path, 'r') as f:
-                    self.annotations = json.load(f)
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        if "annotations" in data:
+                            self.annotations = data["annotations"]
+                            # Handle lane_characteristics as a list
+                            if "lane_characteristics" in data:
+                                self.lane_characteristics = data["lane_characteristics"]
+                            elif "lane_characteristic" in data:  # For backward compatibility
+                                self.lane_characteristics = [data["lane_characteristic"]]
+                            else:
+                                self.lane_characteristics = ["Normal"]
+                            
+                            # Update checkbox states
+                            for option_key, var in self.lane_vars.items():
+                                var.set(option_key in self.lane_characteristics)
+                        else:
+                            # For backward compatibility with old JSON files
+                            self.annotations = data
+                            self.lane_characteristics = ["Normal"]
+                            # Reset all checkboxes except Normal
+                            for option_key, var in self.lane_vars.items():
+                                var.set(option_key == "Normal")
+                    else:
+                        # Legacy format: data is directly the annotations array
+                        self.annotations = data
+                        self.lane_characteristics = ["Normal"]
+                        # Reset all checkboxes except Normal
+                        for option_key, var in self.lane_vars.items():
+                            var.set(option_key == "Normal")
                 self.redraw_annotations()
             else:
                 self.annotations = []
+                self.lane_characteristics = ["Normal"]
+                # Reset all checkboxes except Normal
+                for option_key, var in self.lane_vars.items():
+                    var.set(option_key == "Normal")
             self.update_display()
         else:
             messagebox.showerror("Error", "Cannot open image. Please try again.")
@@ -326,9 +392,13 @@ class AnnotationTool:
             if self.gray_lane_img is not None:
                 cv2.imwrite(gray_lane_path, self.gray_lane_img)
 
-            # Save annotations to JSON file
+            # Save annotations and lane characteristics to JSON file
+            data_to_save = {
+                "annotations": self.annotations,
+                "lane_characteristics": self.lane_characteristics
+            }
             with open(annotations_path, 'w') as f:
-                json.dump(self.annotations, f)
+                json.dump(data_to_save, f)
 
             # Generate and save points to a text file
             self.generate_and_save_points(base_name)
@@ -1097,6 +1167,18 @@ class AnnotationTool:
             # Đặt văn bản ID lên ảnh
             cv2.putText(img, id_text, (text_offset_x, text_offset_y),
                         font, font_scale, text_color, font_thickness, cv2.LINE_AA)
+
+    def update_lane_characteristics(self):
+        # Update the lane_characteristics list based on checked checkboxes
+        self.lane_characteristics = []
+        for option_key, var in self.lane_vars.items():
+            if var.get():
+                self.lane_characteristics.append(option_key)
+        
+        # Ensure at least "Normal" is selected if nothing else is
+        if not self.lane_characteristics:
+            self.lane_vars["Normal"].set(True)
+            self.lane_characteristics = ["Normal"]
 
 
 # Khởi chạy ứng dụng
