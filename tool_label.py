@@ -65,6 +65,10 @@ class AnnotationTool:
         self.pan_x = 0
         self.pan_y = 0
 
+        # Add status bar for notifications
+        self.status_text = tk.StringVar()
+        self.status_text.set("Ready")
+
         # Setup UI
         self.setup_ui()
 
@@ -96,11 +100,16 @@ class AnnotationTool:
             if option_key == "Normal":
                 var.set(True)
             else:
+                self.annotations = []
+                self.lane_characteristics = ["Normal"]
+                for option_key, var in self.lane_vars.items():
+                    var.set(option_key == "Normal")
                 var.set(False)
             self.lane_vars[option_key] = var
             cb = tk.Checkbutton(lane_frame, text=option, variable=var, command=self.update_lane_characteristics)
             cb.pack(side=tk.TOP, anchor=tk.W)
-        
+
+        self.annotations = []  # Correctly aligned
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
 
@@ -144,6 +153,12 @@ class AnnotationTool:
         # Nút chuyển đổi chế độ chỉnh sửa
         self.edit_mode_button = tk.Button(toolbar, text="Chỉnh sửa: None", command=self.toggle_edit_sub_mode, state=tk.DISABLED)
         self.edit_mode_button.pack(side=tk.LEFT, padx=2, pady=2)
+
+        # Status bar at the bottom for notifications
+        status_frame = tk.Frame(self.root, bd=1, relief=tk.SUNKEN)
+        status_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_bar = tk.Label(status_frame, textvariable=self.status_text, anchor=tk.W, padx=5)
+        self.status_bar.pack(fill=tk.X)
 
     def bind_shortcuts(self):
         # Bind keyboard shortcuts to functions
@@ -197,6 +212,15 @@ class AnnotationTool:
 
         return instance_image
 
+    def show_status(self, message, error=False):
+        """Display a message in the status bar instead of showing a message box"""
+        self.status_text.set(message)
+        if error:
+            self.status_bar.config(fg="red")
+        else:
+            self.status_bar.config(fg="black")
+        self.root.update_idletasks()
+
     def open_folder_and_get_image_paths(self, event=None):
         folder_path = filedialog.askdirectory()
 
@@ -204,98 +228,142 @@ class AnnotationTool:
             valid_extensions = ('.png', '.jpg', '.jpeg')
             self.image_path_list = [os.path.join(folder_path, file) for file in os.listdir(folder_path)
                                     if file.lower().endswith(valid_extensions)]
+            if not self.image_path_list:
+                self.show_status("No images found in the selected folder", error=True)
+                return
+                
             self.index = 0  # Reset image index
-
-        self.text = f"{self.index+1} / {len(self.image_path_list)}"
-        self.image_count_label.config(text=self.text)
-
-        self.img_path = self.image_path_list[self.index]
-        self.check_save = [False]*len(self.image_path_list)
-
-        if self.img_path:
+            self.img_path = self.image_path_list[self.index]
+            self.check_save = [False]*len(self.image_path_list)
+            self.text = f"{self.index+1} / {len(self.image_path_list)}"
+            self.image_count_label.config(text=self.text)
             self.load_image_and_annotations()
+            self.show_status(f"Opened folder with {len(self.image_path_list)} images")
 
     def load_image_and_annotations(self):
         base_name = os.path.splitext(os.path.basename(self.img_path))[0]
         annotations_path = f"annotations/{base_name}.json"
+        binary_path = f"gt_binary_image/{base_name}.png"
+        gray_lane_path = f"gt_instance_image/{base_name}.png"
 
         self.img = cv2.imread(self.img_path)
         if self.img is not None:
             self.img = cv2.resize(self.img, (1640, 590))
-            self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
-            self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
-            if os.path.exists(annotations_path):
+            
+            # First check if we have in-memory annotations for this image
+            if self.img_path in self.image_annotations:
+                self.annotations = self.image_annotations[self.img_path].copy()
+                self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+                self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
+                self.redraw_annotations()
+                for option_key, var in self.lane_vars.items():
+                    var.set(option_key in self.lane_characteristics)
+            elif os.path.exists(annotations_path):
                 with open(annotations_path, 'r') as f:
                     data = json.load(f)
                     if isinstance(data, dict):
                         if "annotations" in data:
                             self.annotations = data["annotations"]
-                            # Handle lane_characteristics as a list
                             if "lane_characteristics" in data:
                                 self.lane_characteristics = data["lane_characteristics"]
                             elif "lane_characteristic" in data:  # For backward compatibility
                                 self.lane_characteristics = [data["lane_characteristic"]]
                             else:
                                 self.lane_characteristics = ["Normal"]
-                            
-                            # Update checkbox states
                             for option_key, var in self.lane_vars.items():
                                 var.set(option_key in self.lane_characteristics)
                         else:
-                            # For backward compatibility with old JSON files
                             self.annotations = data
                             self.lane_characteristics = ["Normal"]
-                            # Reset all checkboxes except Normal
                             for option_key, var in self.lane_vars.items():
                                 var.set(option_key == "Normal")
                     else:
-                        # Legacy format: data is directly the annotations array
                         self.annotations = data
                         self.lane_characteristics = ["Normal"]
-                        # Reset all checkboxes except Normal
                         for option_key, var in self.lane_vars.items():
                             var.set(option_key == "Normal")
-                self.redraw_annotations()
+                    
+                    if os.path.exists(binary_path):
+                        self.binary_img = cv2.imread(binary_path, cv2.IMREAD_GRAYSCALE)
+                    else:
+                        self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+                    
+                    if os.path.exists(gray_lane_path):
+                        self.gray_lane_img = cv2.imread(gray_lane_path, cv2.IMREAD_GRAYSCALE)
+                    else:
+                        self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
+                    
+                    self.image_annotations[self.img_path] = self.annotations.copy()
+                    self.redraw_annotations()
             else:
                 self.annotations = []
                 self.lane_characteristics = ["Normal"]
-                # Reset all checkboxes except Normal
                 for option_key, var in self.lane_vars.items():
                     var.set(option_key == "Normal")
+                self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
+                self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
+            
+            # Áp dụng trạng thái "Saved" từ check_save
+            self.save_check_var.set(self.check_save[self.index])
+            
             self.update_display()
+            self.show_status(f"Loaded image: {os.path.basename(self.img_path)}")
         else:
-            messagebox.showerror("Error", "Cannot open image. Please try again.")
+            self.show_status(f"Failed to load image: {os.path.basename(self.img_path)}", error=True)
 
     def check_click_button(self):
         if not self.save_check_var.get():
             self.check_save[self.index] = False
+            self.show_status("Image marked as not saved")
         else:
+            # Tự động lưu nếu ảnh chưa được đánh dấu là đã lưu và có chú thích
+            if not self.check_save[self.index] and self.annotations:
+                self.save_images()  # Tự động lưu khi đánh dấu là đã lưu
             self.check_save[self.index] = True
+            self.show_status("Image marked as saved")
 
     def next_image(self, event=None):
+        # Lưu trạng thái của ảnh hiện tại và tự động lưu nếu cần trước khi chuyển sang ảnh tiếp theo
         if self.img_path is not None:
             self.image_annotations[self.img_path] = self.annotations.copy()
-            self.image_label[self.img_path] = self.img.copy()
+            # Nếu ảnh chưa được lưu và có chú thích, tự động lưu
+            if not self.check_save[self.index] and self.annotations:
+                self.save_images()
+                self.show_status("Automatically saved changes before moving to next image")
+            self.check_save[self.index] = self.save_check_var.get()  # Lưu trạng thái "Saved" của ảnh hiện tại
+
         if self.index < len(self.image_path_list) - 1:
             self.index += 1
             self.img_path = self.image_path_list[self.index]
-            if not self.check_save[self.index]:
-                self.save_check_var.set(False)
-            else:
-                self.save_check_var.set(True)
+            
+            # Áp dụng trạng thái "Saved" của ảnh mới từ check_save
+            self.save_check_var.set(self.check_save[self.index])
+
+            # Load ảnh và chú thích mới
             self.load_image_and_annotations()
             self.zoom_scale = 1.0
             self.pan_x = 0
             self.pan_y = 0
         else:
-            messagebox.showerror("Error", "Cannot open image. Please try again.")
+            self.show_status("End of image list reached", error=True)
+
         self.text = f"{self.index+1} / {len(self.image_path_list)}"
         self.image_count_label.config(text=self.text)
 
     def prev_image(self, event=None):
+        # Save current annotations to memory before moving to previous image
         if self.img_path is not None:
             self.image_annotations[self.img_path] = self.annotations.copy()
-            self.image_label[self.img_path] = self.img.copy()
+            
+            # Check if current image has unsaved changes
+            if not self.check_save[self.index] and len(self.annotations) > 0:
+                save_prompt = messagebox.askyesnocancel("Unsaved Changes", 
+                                          "You have unsaved changes. Do you want to save before proceeding?")
+                if save_prompt is None:  # User cancelled
+                    return
+                elif save_prompt:  # User selected "Yes"
+                    self.save_images()
+        
         if self.index > 0:
             self.index -= 1
             self.img_path = self.image_path_list[self.index]
@@ -308,7 +376,8 @@ class AnnotationTool:
             self.pan_x = 0
             self.pan_y = 0
         else:
-            messagebox.showerror("Error", "Cannot open image. Please try again.")
+            self.show_status("Beginning of image list reached", error=True)
+        
         self.text = f"{self.index+1} / {len(self.image_path_list)}"
         self.image_count_label.config(text=self.text)
 
@@ -363,84 +432,81 @@ class AnnotationTool:
                 file.write(line_str + "\n")  # Write each lane's points as a single line
 
     def save_images(self, event=None):
-        while True:
-            base_name = os.path.splitext(os.path.basename(self.image_path_list[self.index]))[0]
+        if not self.img_path or len(self.image_path_list) == 0:
+            return  # Nếu không có ảnh để lưu thì không cần thông báo gì
 
-            # Define paths to save images
-            image_path = f"gt_image/{base_name}.png"
-            binary_path = f"gt_binary_image/{base_name}.png"
-            gray_lane_path = f"gt_instance_image/{base_name}.png"
-            annotations_path = f"annotations/{base_name}.json"  # Path for annotations file
+        base_name = os.path.splitext(os.path.basename(self.image_path_list[self.index]))[0]
 
-            # Check if any file already exists
-            if os.path.exists(image_path) or os.path.exists(binary_path) or os.path.exists(gray_lane_path) or os.path.exists(annotations_path):
-                retry = messagebox.askyesno("File Exists", f"File '{base_name}' already exists. Overwrite?")
-                if not retry:
-                    return
-            self.image_label[self.img_path] = self.img.copy()
-            # Save the annotated original image
-            img = cv2.imread(self.img_path)
+        # Define paths to save images
+        image_path = f"gt_image/{base_name}.png"
+        binary_path = f"gt_binary_image/{base_name}.png"
+        gray_lane_path = f"gt_instance_image/{base_name}.png"
+        annotations_path = f"annotations/{base_name}.json"  # Path for annotations file
+
+        # Save annotations to memory
+        self.image_annotations[self.img_path] = self.annotations.copy()
+        
+        # Save the original image (not the annotated one)
+        img = cv2.imread(self.img_path)
+        if img is not None:
             img = cv2.resize(img, (1640, 590))
-            if self.img is not None:
-                cv2.imwrite(image_path, img)
+            cv2.imwrite(image_path, img)
 
-            # Save the binary image
-            if self.binary_img is not None:
-                cv2.imwrite(binary_path, self.binary_img)
+        # Save the binary image
+        if self.binary_img is not None:
+            cv2.imwrite(binary_path, self.binary_img)
 
-            # Save the instance (gray lane) image
-            if self.gray_lane_img is not None:
-                cv2.imwrite(gray_lane_path, self.gray_lane_img)
+        # Save the instance (gray lane) image
+        if self.gray_lane_img is not None:
+            cv2.imwrite(gray_lane_path, self.gray_lane_img)
 
-            # Save annotations and lane characteristics to JSON file
-            data_to_save = {
-                "annotations": self.annotations,
-                "lane_characteristics": self.lane_characteristics
-            }
-            with open(annotations_path, 'w') as f:
-                json.dump(data_to_save, f)
+        # Save annotations and lane characteristics to JSON file
+        data_to_save = {
+            "annotations": self.annotations,
+            "lane_characteristics": self.lane_characteristics
+        }
+        with open(annotations_path, 'w') as f:
+            json.dump(data_to_save, f)
 
-            # Generate and save points to a text file
-            self.generate_and_save_points(base_name)
+        # Generate and save points to a text file
+        self.generate_and_save_points(base_name)
 
-            messagebox.showinfo("Save Image", f"Saved image as:\n{image_path}\n{binary_path}\n{gray_lane_path}\n{annotations_path}")
-            self.check_save[self.index] = True
-            self.save_check_var.set(True)
-            break
+        self.check_save[self.index] = True
+        self.save_check_var.set(True)  # Set the checkbox to saved without prompting the user
 
     def create_train_valid_test_files(self, event=None):
         # Ask for base path
         base_path = simpledialog.askstring("Nhập đường dẫn",
-                                           "Nhập đường dẫn cơ sở cho các tệp (ví dụ: dataset/dataset_tusimple/training):")
+                                          "Nhập đường dẫn cơ sở:")
         if not base_path:
-            messagebox.showwarning("Cảnh báo", "Vui lòng nhập đường dẫn cơ sở.")
+            self.show_status("Base path is required", error=True)
             return
 
         # Get n_sample for the test set
         n_sample = simpledialog.askinteger("Nhập n_sample", "Số lượng ảnh trong tập val:")
         if not n_sample:
-            messagebox.showwarning("Cảnh báo", "Vui lòng nhập số lượng n_sample.")
+            self.show_status("Sample size is required", error=True)
             return
 
         # Get list of image base names from 'gt_image' folder
         img_files = sorted([f.split('.')[0] for f in os.listdir('gt_image') if f.endswith('.png')])
-        print(img_files)
-
-        if len(img_files) < n_sample:
-            messagebox.showerror("Lỗi", "Số lượng ảnh trong thư mục ít hơn số lượng yêu cầu cho test.")
+        
+        if not img_files:
+            self.show_status("No images found in gt_image folder", error=True)
             return
 
-        # Split data
-        train_files = img_files
+        if len(img_files) < n_sample:
+            self.show_status(f"Not enough images ({len(img_files)}) for validation set ({n_sample})", error=True)
+            return
 
         # Write to files
-        self.write_to_txt('train.txt', train_files, base_path)
-
+        self.write_to_txt('train.txt', img_files, base_path)
+        
         # Random selection for test set
         test_files = random.sample(img_files, n_sample)
         self.write_to_txt('val.txt', test_files, base_path)
 
-        messagebox.showinfo("Hoàn tất", "Các tệp train.txt, val.txt đã được tạo.")
+        self.show_status(f"Created train.txt with {len(img_files)} images and val.txt with {n_sample} images")
 
     def write_to_txt(self, filename, files_list, base_path):
         with open(filename, 'w') as f:
@@ -499,7 +565,7 @@ class AnnotationTool:
             # Di chuyển ảnh theo pan_x và pan_y
             self.canvas.coords(self.img_display, self.pan_x, self.pan_y)
         else:
-            messagebox.showwarning("Warning", "No image to display!")  # Thông báo nếu không có ảnh
+            self.show_status("No image to display", error=True)  # Thông báo nếu không có ảnh
 
     def update_display_with_cursor(self, x, y):
         if self.img is None:
@@ -792,6 +858,7 @@ class AnnotationTool:
     def finish_current_object(self, event=None):
         if self.action_mode == 'edit' and self.edit_sub_mode == 'add' and self.selected_object_index is not None:
             self.add_annotation_to_selected_object()
+            self.show_status("Added annotation to selected object")
         else:
             if self.mode == 'line':
                 if len(self.current_object) == 2:
@@ -812,8 +879,9 @@ class AnnotationTool:
                     self.current_object = []
                     self.current_color = self.random_color()
                     self.update_display()
+                    self.show_status("Line created")
                 else:
-                    messagebox.showwarning("Cảnh báo", "Cần 2 điểm để tạo một đường thẳng.")
+                    self.show_status("Need 2 points to create a line", error=True)
             elif self.mode == 'curve':
                 if len(self.current_object) >= 2:
                     pts = np.array(self.current_object, np.int32).reshape((-1, 1, 2))
@@ -833,7 +901,7 @@ class AnnotationTool:
                     self.current_color = self.random_color()
                     self.update_display()
                 else:
-                    messagebox.showwarning("Cảnh báo", "Cần ít nhất 2 điểm để tạo một đường cong.")
+                    self.show_status("Cần ít nhất 2 điểm để tạo một đường cong.", error=True)
             elif self.mode == 'polygon':
                 if len(self.current_object) >= 3:
                     pts = np.array(self.current_object, np.int32)
@@ -856,7 +924,7 @@ class AnnotationTool:
                     self.redraw_annotations()
                     self.update_display()
                 else:
-                    messagebox.showwarning("Cảnh báo", "Cần ít nhất 3 điểm để tạo một vùng.")
+                    self.show_status("Cần ít nhất 3 điểm để tạo một vùng.", error=True)
             elif self.mode == 'polyline':
                 if len(self.current_object) >= 1:
                     # Draw the segments onto the images
@@ -878,7 +946,7 @@ class AnnotationTool:
                     self.current_color = self.random_color()
                     self.update_display()
                 else:
-                    messagebox.showwarning("Cảnh báo", "Cần ít nhất 2 điểm để tạo một đường gấp khúc.")
+                    self.show_status("Cần ít nhất 2 điểm để tạo một đường gấp khúc.", error=True)
 
     def toggle_mode(self, event=None):
         modes = ['line', 'curve', 'polygon', 'polyline']
@@ -932,6 +1000,7 @@ class AnnotationTool:
             else:
                 self.current_object.pop()
                 self.redraw_current_object()
+            self.show_status("Undid last point")
         elif self.annotations:
             if self.action_mode == 'edit' and self.edit_sub_mode == 'add' and self.selected_object_index is not None:
                 obj = self.annotations[self.selected_object_index]
@@ -940,16 +1009,17 @@ class AnnotationTool:
                     self.redraw_annotations()
                     self.update_display()
                 else:
-                    messagebox.showinfo("Thông báo", "Không còn chú thích để xóa.")
+                    self.show_status("Không còn chú thích để xóa.", error=True)
             else:
                 self.annotations.pop()
                 self.redraw_annotations()
+                self.show_status("Removed last annotation")
         else:
-            messagebox.showinfo("Thông báo", "Không còn chú thích để xóa.")
+            self.show_status("Nothing to undo", error=True)
 
     def clear_all_annotations(self, event=None):
         if self.img is None:
-            messagebox.showwarning("Cảnh báo", "Vui lòng mở một ảnh trước khi xóa.")
+            self.show_status("No image loaded", error=True)
             return
 
         if messagebox.askyesno("Xác nhận", "Bạn có chắc chắn muốn xóa tất cả các chú thích không?"):
@@ -963,6 +1033,7 @@ class AnnotationTool:
             self.binary_img = np.zeros((590, 1640), dtype=np.uint8)  # Clear binary canvas
             self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)  # Clear instance canvas
             self.redraw_annotations()
+            self.show_status("All annotations cleared")
 
     def redraw_annotations(self, img=None):
         if self.img_path:
@@ -970,14 +1041,16 @@ class AnnotationTool:
                 self.img = cv2.imread(self.img_path)
                 if self.img is not None:
                     self.img = cv2.resize(self.img, (1640, 590))
+                    # Initialize binary and gray lane images only if we're redrawing everything
                     self.binary_img = np.zeros((590, 1640), dtype=np.uint8)
                     self.gray_lane_img = np.zeros((590, 1640), dtype=np.uint8)
                 else:
                     messagebox.showerror("Error", "Cannot reload original image.")
                     return
             else:
-                self.img = img
+                self.img = img.copy()
 
+            # Draw all annotations on the images
             for obj in self.annotations:
                 gray_value = obj['gray_value']
                 for part in obj['annotations']:
