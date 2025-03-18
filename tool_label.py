@@ -386,50 +386,123 @@ class AnnotationTool:
         x2, y2 = line[1]
         points = []
 
-        # Calculate the slope and intercept of the line
-        slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
-        intercept = y1 - slope * x1
-
-        # Ensure y values are rounded to the nearest multiple of 10
-        y_start = round(y1 / 10) * 10
-        y_end = round(y2 / 10) * 10
-
-        # Determine the range for the y-axis based on the direction of drawing
-        if y_start < y_end:
-            y_range = np.arange(y_start, y_end + 10, 10)
+        # Tính độ dốc và hệ số chặn
+        if x2 != x1:
+            slope = (y2 - y1) / (x2 - x1)
         else:
-            y_range = np.arange(y_start, y_end - 10, -10)  # Reverse the range if drawing from bottom to top
+            slope = float('inf')
 
-        for y in y_range:
-            if slope != float('inf'):
+        # Trường hợp đường thẳng đứng (vertical)
+        if slope == float('inf'):
+            y_start = round(min(y1, y2) / 10) * 10
+            y_end = round(max(y1, y2) / 10) * 10
+            y_range = np.arange(y_start, y_end + 10, 10) if y_start < y_end else np.arange(y_start, y_end - 10, -10)
+            for y in y_range:
+                points.append((x1, y))
+        # Trường hợp đường thẳng ngang (horizontal)
+        elif slope == 0:
+            x_start = round(min(x1, x2) / 10) * 10
+            x_end = round(max(x1, x2) / 10) * 10
+            x_range = np.arange(x_start, x_end + 10, 10) if x_start < x_end else np.arange(x_start, x_end - 10, -10)
+            for x in x_range:
+                points.append((x, y1))  # y giữ nguyên vì đường ngang
+        # Trường hợp đường thẳng nghiêng (slanted)
+        else:
+            intercept = y1 - slope * x1
+            y_start = round(min(y1, y2) / 10) * 10
+            y_end = round(max(y1, y2) / 10) * 10
+            y_range = np.arange(y_start, y_end + 10, 10) if y_start < y_end else np.arange(y_start, y_end - 10, -10)
+            for y in y_range:
                 x = (y - intercept) / slope
-            else:
-                x = x1
-            # Keep x as float and round y to the nearest multiple of 10
-            points.append((x, y))
-        
+                points.append((x, y))
+
         return points
 
+    def generate_points_from_curve_or_polygon(self, points):
+        all_points = []
+        
+        for i in range(len(points) - 1):
+            x1, y1 = points[i]
+            x2, y2 = points[i + 1]
+            
+            # Tính độ dốc và khoảng cách
+            dx = x2 - x1
+            dy = y2 - y1
+            
+            # Trường hợp đường thẳng đứng (vertical)
+            if dx == 0:
+                y_start = round(min(y1, y2) / 10) * 10
+                y_end = round(max(y1, y2) / 10) * 10
+                y_range = np.arange(y_start, y_end + 10, 10) if y_start < y_end else np.arange(y_start, y_end - 10, -10)
+                for y in y_range:
+                    all_points.append((x1, y))
+            
+            # Trường hợp đường thẳng ngang (horizontal)
+            elif dy == 0:
+                x_start = round(min(x1, x2) / 10) * 10
+                x_end = round(max(x1, x2) / 10) * 10
+                x_range = np.arange(x_start, x_end + 10, 10) if x_start < x_end else np.arange(x_start, x_end - 10, -10)
+                for x in x_range:
+                    all_points.append((x, y1))
+            
+            # Trường hợp đường thẳng nghiêng (slanted)
+            else:
+                slope = dy / dx
+                intercept = y1 - slope * x1
+                y_start = round(min(y1, y2) / 10) * 10
+                y_end = round(max(y1, y2) / 10) * 10
+                y_range = np.arange(y_start, y_end + 10, 10) if y_start < y_end else np.arange(y_start, y_end - 10, -10)
+                for y in y_range:
+                    x = (y - intercept) / slope
+                    all_points.append((x, y))
+        
+        # Đảm bảo điểm cuối cùng được thêm vào nếu chưa có
+        if points[-1] not in all_points:
+            all_points.append(points[-1])
+        
+        return all_points
+
+    def generate_points_from_polyline(self, segments):
+        all_points = []
+        for seg in segments:
+            line_points = self.generate_points_from_line([seg['start'], seg['end']])
+            if all_points and line_points and line_points[0] == all_points[-1]:
+                line_points = line_points[1:]
+            all_points.extend(line_points)
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(all_points))
 
     def generate_and_save_points(self, base_name):
-        points_per_line = []
-
+        points_per_object = []
         for obj in self.annotations:
+            obj_points = []
             for annotation in obj['annotations']:
                 if annotation[0] == 'line':
-                    line = [annotation[1], annotation[2]]  # Get the start and end coordinates
+                    line = [annotation[1], annotation[2]]
                     points = self.generate_points_from_line(line)
-                    points_per_line.append(points)
+                    obj_points.extend(points)
+                elif annotation[0] == 'curve':
+                    points = self.generate_points_from_curve_or_polygon(annotation[1])
+                    obj_points.extend(points)
+                elif annotation[0] == 'polyline':
+                    points = self.generate_points_from_polyline(annotation[1])
+                    obj_points.extend(points)
+                elif annotation[0] == 'polygon':
+                    points = self.generate_points_from_curve_or_polygon(annotation[1])
+                    obj_points.extend(points)
+            if obj_points:
+                points_per_object.append(obj_points)
 
-        # Write points to a text file
         txt_path = f"gt_image/{base_name}.lines.txt"
-        with open(txt_path, "w") as file:
-            for line_points in points_per_line:
-                # Sort points by y in descending order
-                line_points_sorted = sorted(line_points, key=lambda point: point[1], reverse=True)
-                # Convert the list of points into a single string, where each point is separated by a space
-                line_str = " ".join([f"{point[0]:.4f} {point[1]}" for point in line_points_sorted])
-                file.write(line_str + "\n")  # Write each lane's points as a single line
+        try:
+            with open(txt_path, "w") as file:
+                for obj_points in points_per_object:
+                    sorted_points = sorted(obj_points, key=lambda p: p[1], reverse=True)
+                    line_str = " ".join([f"{pt[0]:.4f} {pt[1]}" for pt in sorted_points])
+                    file.write(line_str + "\n")
+            self.show_status(f"Saved points to {txt_path}")
+        except Exception as e:
+            self.show_status(f"Error saving points to {txt_path}: {str(e)}", error=True)
 
     def save_images(self, event=None):
         if not self.img_path or len(self.image_path_list) == 0:
