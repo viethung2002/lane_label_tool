@@ -94,20 +94,15 @@ class AnnotationTool:
 
         # Create a checkbutton for each lane option
         for option in self.lane_options:
-            option_key = option.split(":")[0].strip()  # Extract the key part
-            var = tk.BooleanVar(self.root)
-            # Set Normal as checked by default
-            if option_key == "Normal":
-                var.set(True)
-            else:
-                self.annotations = []
-                self.lane_characteristics = ["Normal"]
-                for option_key, var in self.lane_vars.items():
-                    var.set(option_key == "Normal")
-                var.set(False)
-            self.lane_vars[option_key] = var
-            cb = tk.Checkbutton(lane_frame, text=option, variable=var, command=self.update_lane_characteristics)
-            cb.pack(side=tk.TOP, anchor=tk.W)
+                option_key = option.split(":")[0].strip()  # Extract the key part
+                var = tk.BooleanVar(self.root)
+                var.set(option_key == "Normal")  # Chỉ chọn "Normal" mặc định
+                self.lane_vars[option_key] = var
+                cb = tk.Checkbutton(lane_frame, text=option, variable=var, command=self.update_lane_characteristics)
+                cb.pack(side=tk.TOP, anchor=tk.W)
+
+                # Gọi hàm cập nhật để đồng bộ ngay từ đầu
+                self.update_lane_characteristics()
 
         self.annotations = []  # Correctly aligned
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
