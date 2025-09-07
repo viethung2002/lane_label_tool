@@ -32,7 +32,7 @@ def extract_frames(video_path, output_folder):
             break
 
         if frame_count % frame_interval == 0:
-            frame_filename = os.path.join(output_folder, f"{saved_frame_count:04d}.png")
+            frame_filename = os.path.join(output_folder, f"{saved_frame_count:04d}.jpg")
             cv2.imwrite(frame_filename, frame)
             saved_frame_count += 1
 

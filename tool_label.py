@@ -169,7 +169,7 @@ class AnnotationTool:
         self.root.bind('p', self.prev_image)
         self.root.bind('d', self.set_edit_sub_mode_delete)
         self.root.bind('a', self.set_edit_sub_mode_add)
-
+      
     def set_edit_sub_mode_delete(self, event=None):
         if self.action_mode == 'edit':
             self.edit_sub_mode = 'delete'
@@ -238,8 +238,8 @@ class AnnotationTool:
     def load_image_and_annotations(self):
         base_name = os.path.splitext(os.path.basename(self.img_path))[0]
         annotations_path = f"annotations/{base_name}.json"
-        binary_path = f"gt_binary_image/{base_name}.png"
-        gray_lane_path = f"gt_instance_image/{base_name}.png"
+        binary_path = f"gt_binary_image/{base_name}.jpg"
+        gray_lane_path = f"gt_instance_image/{base_name}.jpg"
 
         self.img = cv2.imread(self.img_path)
         if self.img is not None:
@@ -506,9 +506,9 @@ class AnnotationTool:
         base_name = os.path.splitext(os.path.basename(self.image_path_list[self.index]))[0]
 
         # Define paths to save images
-        image_path = f"gt_image/{base_name}.png"
-        binary_path = f"gt_binary_image/{base_name}.png"
-        gray_lane_path = f"gt_instance_image/{base_name}.png"
+        image_path = f"gt_image/{base_name}.jpg"
+        binary_path = f"gt_binary_image/{base_name}.jpg"
+        gray_lane_path = f"gt_instance_image/{base_name}.jpg"
         annotations_path = f"annotations/{base_name}.json"  # Path for annotations file
 
         # Save annotations to memory
@@ -557,7 +557,7 @@ class AnnotationTool:
             return
 
         # Get list of image base names from 'gt_image' folder
-        img_files = sorted([f.split('.')[0] for f in os.listdir('gt_image') if f.endswith('.png')])
+        img_files = sorted([f.split('.')[0] for f in os.listdir('gt_image') if f.endswith('.jpg')])
         
         if not img_files:
             self.show_status("No images found in gt_image folder", error=True)
@@ -579,9 +579,9 @@ class AnnotationTool:
     def write_to_txt(self, filename, files_list, base_path):
         with open(filename, 'w') as f:
             for file_base in files_list:
-                image_path = f"{base_path}/gt_image/{file_base}.png"
-                binary_path = f"{base_path}/gt_binary_image/{file_base}.png"
-                instance_path = f"{base_path}/gt_instance_image/{file_base}.png"
+                image_path = f"{base_path}/gt_image/{file_base}.jpg"
+                binary_path = f"{base_path}/gt_binary_image/{file_base}.jpg"
+                instance_path = f"{base_path}/gt_instance_image/{file_base}.jpg"
                 f.write(f"{image_path} {binary_path} {instance_path}\n")
 
     def random_color(self):
@@ -592,7 +592,7 @@ class AnnotationTool:
         return gray_value
 
     def open_image(self, event=None):
-        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg;*.jpeg;*.png")])
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg;*.jpeg;*.jpg")])
         if file_path:
             self.img_path = file_path
             self.img = cv2.imread(file_path)
@@ -1285,6 +1285,7 @@ class AnnotationTool:
                     y2 = int(end[1] * self.zoom_scale)
                     cv2.line(img, (x1, y1), (x2, y2), color, int(thickness * self.zoom_scale))
                     # Compute centroid if needed
+
         if cX is not None and cY is not None:
             # Chuẩn bị văn bản ID
             id_text = f"ID: {obj['id']}"
