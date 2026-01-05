@@ -1,4 +1,4 @@
-﻿# lane_label-_tool
+﻿# lane_label-_tool1
 
 Để cài đặt và chạy dự án từ GitHub sử dụng các lệnh mà bạn đã đưa ra, bạn có thể làm theo các bước dưới đây:
 
@@ -95,3 +95,4 @@ P: Xem ảnh trước.
 Lưu ý:
 Chương trình tự động tạo thư mục gt_image, gt_binary_image, gt_instance_image, và annotations để lưu các kết quả.
 file point sẽ nằm cùng với thư mục gt_image , mỗi lane nằm 1 hàng trong file txt
+
